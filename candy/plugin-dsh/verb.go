@@ -58,12 +58,22 @@ func verbVersion(ctx context.Context, cc kit.CheckContext) (string, error) {
 
 // verbWebRunning probes the dsh web UI on 127.0.0.1:3080 IN-BOX via curl — the
 // direct check of the loopback-bound web app (the socat forwarder is what makes
-// it reachable from the host; the in-box probe verifies the app itself). curl -f
-// fails on any non-2xx, so exit 0 means the web UI answers. Skips under box mode
-// (no running service on a disposable container) — the RunVerb / invokeVerb
-// dispatch gates that.
+// it reachable from the host; the in-box probe verifies the app itself).
+//
+// Since dsh-web-app 0.1.5-rc.x the web UI authenticates every request: each
+// process mints a random launch token and `dsh web` prints it in its readiness
+// line, which the dsh candy's entrypoint persists to $DSH_HOME/web-token. A
+// tokenless GET / returns 401, so the probe MUST read that token and authenticate
+// with ?token=<token>. A missing/empty token file is a HARD error (the token is
+// the precondition of the probe) — never a silent tokenless probe. curl -f
+// accepts the token exchange's 303 (no -L needed) and fails on any non-2xx, so
+// exit 0 means the authenticated web UI answers. Skips under box mode (no running
+// service on a disposable container) — the RunVerb / invokeVerb dispatch gates that.
 func verbWebRunning(ctx context.Context, cc kit.CheckContext) (string, error) {
-	stdout, stderr, exit, err := cc.Exec().RunCapture(ctx, "curl -fsS -o /dev/null http://127.0.0.1:3080/")
+	script := `T="$(cat "${DSH_HOME:-$HOME/.dsh}/web-token" 2>/dev/null)"; ` +
+		`if [ -z "$T" ]; then echo "no dsh web token at ${DSH_HOME:-$HOME/.dsh}/web-token — the dsh entrypoint captures it on service start" >&2; exit 1; fi; ` +
+		`curl -fsS -o /dev/null "http://127.0.0.1:3080/?token=$T"`
+	stdout, stderr, exit, err := cc.Exec().RunCapture(ctx, script)
 	if err != nil {
 		return "", fmt.Errorf("probe dsh web UI: %w", err)
 	}
@@ -71,7 +81,7 @@ func verbWebRunning(ctx context.Context, cc kit.CheckContext) (string, error) {
 		return "", fmt.Errorf("dsh web UI not answering on 127.0.0.1:3080: %s", strings.TrimSpace(stderr))
 	}
 	_ = stdout
-	return "dsh web UI answers HTTP 200 on 127.0.0.1:3080", nil
+	return "dsh web UI answers on 127.0.0.1:3080 with the launch token", nil
 }
 
 // verbProfileList lists the profiles under $DSH_HOME/profiles in the venue.

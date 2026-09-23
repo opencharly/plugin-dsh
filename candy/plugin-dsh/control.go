@@ -55,7 +55,14 @@ type DshStatusCmd struct {
 func (c *DshStatusCmd) Run() error {
 	// dsh --version, then probe the loopback-bound web UI in-box (the direct
 	// check; the socat forwarder is what makes it reachable from the host).
-	command := "dsh --version && curl -fsS -o /dev/null http://127.0.0.1:3080/ && echo 'web UI: HTTP 200 on 127.0.0.1:3080'"
+	// Since dsh-web-app 0.1.5-rc.x the web UI authenticates every request: read
+	// the launch token the dsh candy's entrypoint persists to $DSH_HOME/web-token
+	// and authenticate with ?token=<token>. A missing/empty token file is a HARD
+	// error — never a silent tokenless probe. curl -f accepts the token
+	// exchange's 303 (no -L needed).
+	command := `dsh --version && T="$(cat "${DSH_HOME:-$HOME/.dsh}/web-token" 2>/dev/null)"; ` +
+		`if [ -z "$T" ]; then echo "no dsh web token at ${DSH_HOME:-$HOME/.dsh}/web-token — the dsh entrypoint captures it on service start" >&2; exit 1; fi; ` +
+		`curl -fsS -o /dev/null "http://127.0.0.1:3080/?token=$T" && echo 'web UI: HTTP 200 on 127.0.0.1:3080'`
 	return runInBox(c.Box, c.Instance, command)
 }
 
