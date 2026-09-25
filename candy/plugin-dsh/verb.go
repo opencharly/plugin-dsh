@@ -58,12 +58,16 @@ func verbVersion(ctx context.Context, cc kit.CheckContext) (string, error) {
 
 // verbWebRunning probes the dsh web UI on 127.0.0.1:3080 IN-BOX via curl — the
 // direct check of the loopback-bound web app (the socat forwarder is what makes
-// it reachable from the host; the in-box probe verifies the app itself). curl -f
-// fails on any non-2xx, so exit 0 means the web UI answers. Skips under box mode
-// (no running service on a disposable container) — the RunVerb / invokeVerb
-// dispatch gates that.
+// it reachable from the host; the in-box probe verifies the app itself).
+//
+// The probe is token-authenticated: since dsh-web-app 0.1.5-rc.x a tokenless
+// GET / returns 401, so the shared dshWebTokenProbe fragment (webprobe.go) reads
+// the launch token from $DSH_HOME/web-token and authenticates with ?token=<token>
+// — a missing token file is a hard error, never a silent tokenless probe. Skips
+// under box mode (no running service on a disposable container) — the RunVerb /
+// invokeVerb dispatch gates that.
 func verbWebRunning(ctx context.Context, cc kit.CheckContext) (string, error) {
-	stdout, stderr, exit, err := cc.Exec().RunCapture(ctx, "curl -fsS -o /dev/null http://127.0.0.1:3080/")
+	stdout, stderr, exit, err := cc.Exec().RunCapture(ctx, dshWebTokenProbe("3080"))
 	if err != nil {
 		return "", fmt.Errorf("probe dsh web UI: %w", err)
 	}
@@ -71,7 +75,7 @@ func verbWebRunning(ctx context.Context, cc kit.CheckContext) (string, error) {
 		return "", fmt.Errorf("dsh web UI not answering on 127.0.0.1:3080: %s", strings.TrimSpace(stderr))
 	}
 	_ = stdout
-	return "dsh web UI answers HTTP 200 on 127.0.0.1:3080", nil
+	return "dsh web UI answers on 127.0.0.1:3080 with the launch token", nil
 }
 
 // verbProfileList lists the profiles under $DSH_HOME/profiles in the venue.
