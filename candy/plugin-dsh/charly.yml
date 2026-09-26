@@ -22,7 +22,7 @@ plugin-dsh:
             providers:
                 - command:dsh
                 - verb:dsh
-            source: builtin
+            source: github.com/opencharly/plugin-dsh/candy/plugin-dsh
         plan:
             - # ADE check: a deterministic build-context check that does NOT depend on the
               # dsh runtime the `charly dsh` command needs. Mirrors
