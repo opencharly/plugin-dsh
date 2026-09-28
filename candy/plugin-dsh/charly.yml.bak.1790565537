@@ -1,5 +1,7 @@
+version: 2026.232.0520
 plugin-dsh:
     candy:
+        version: 2026.226.1600
         description: |-
             The `charly dsh` management CLI for a deployed deepseek-harness (dsh)
             box PLUS the declarative `dsh:` check verb — a COMPILED-IN
