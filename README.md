@@ -21,7 +21,13 @@ go-plugin gRPC) and runs `dsh` **inside the venue** via `cc.Exec()`.
 
 ## How to use it
 
-The command targets a deployed box:
+Compose the plugin candy in a box or check bed's `candy:` list:
+
+```yaml
+- '@github.com/opencharly/plugin-dsh/candy/plugin-dsh:<tag>'
+```
+
+The command then targets a deployed box:
 
 ```
 charly dsh status --box my-dsh-box
