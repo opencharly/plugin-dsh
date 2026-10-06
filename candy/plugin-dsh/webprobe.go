@@ -19,18 +19,18 @@ package dsh
 //     this IN-BOX probe cannot itself observe (it always dials 127.0.0.1).
 //
 // So the probe does BOTH: it exchanges the token on / (capturing the cookie into a
-// temp jar), then makes one /api/* call with that cookie. That second call proves
-// the app's API surface actually answers — not merely that / responds — and fails
-// on a 403 from a misconfigured fence. A missing/empty token file is a HARD error
-// (the token is the precondition of the probe) — never a silent tokenless probe.
-// curl -f accepts the token exchange's 303 (no -L needed) and fails on any non-2xx,
-// so a zero exit means the authenticated web UI answered AND its API reached the
-// caller.
+// temp jar), then makes one /api/* call with that cookie. The exchange failure
+// PROPAGATES (a bad/expired token or a down web UI exits non-zero, keeping the
+// layer-1 assertion the old fragment had by virtue of being its last command). The
+// /api/* call is then rejected on 403 (the fence), 000 (no response), and 5xx —
+// everything else is a live API that answered. A missing/empty token file is a HARD
+// error (the token is the precondition of the probe) — never a silent tokenless
+// probe.
 func dshWebTokenProbe(port string) string {
 	return `T="$(cat "${DSH_HOME:-$HOME/.dsh}/web-token" 2>/dev/null)"; ` +
 		`if [ -z "$T" ]; then echo "no dsh web token at ${DSH_HOME:-$HOME/.dsh}/web-token — the dsh entrypoint captures it on service start" >&2; exit 1; fi; ` +
 		`J="$(mktemp)"; ` +
-		`curl -fsS -o /dev/null -c "$J" "http://127.0.0.1:` + port + `/?token=$T"; ` +
+		`curl -fsS -o /dev/null -c "$J" "http://127.0.0.1:` + port + `/?token=$T" || { echo "dsh web token exchange failed on 127.0.0.1:` + port + ` (bad or expired launch token, or the web UI is down)" >&2; rm -f "$J"; exit 1; }; ` +
 		`C="$(curl -s -o /dev/null -w '%{http_code}' -b "$J" "http://127.0.0.1:` + port + `/api/models")"; rm -f "$J"; ` +
-		`if [ "$C" = "403" ]; then echo "dsh web UI returned 403 on /api/* — the Host/Origin browser-trust fence refused the request" >&2; exit 1; fi`
+		`case "$C" in 403) echo "dsh web UI returned 403 on /api/* — the Host/Origin browser-trust fence refused the request" >&2; exit 1;; 000) echo "dsh web UI gave no response on /api/*" >&2; exit 1;; 5??) echo "dsh web UI returned $C on /api/*" >&2; exit 1;; esac`
 }

@@ -14,8 +14,9 @@ plugin-dsh:
             `web-running`, `profile-list`, `plugin-list`): it runs dsh commands
             INSIDE the venue via cc.Exec().RunCapture — the one place plugin-dsh
             diverges from plugin-agentteams' host-based cc.ResolveEndpoint (the
-            loopback-bound, token-authenticated web UI is probed in-box on
-            127.0.0.1:3080 with the launch token from $DSH_HOME/web-token).
+            loopback-bound web UI is probed in-box on 127.0.0.1:3080: the launch
+            token from $DSH_HOME/web-token is exchanged on / and an /api/* call is
+            then asserted).
         plugin:
             providers:
                 - command:dsh
