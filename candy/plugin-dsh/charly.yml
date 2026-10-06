@@ -43,6 +43,8 @@ dsh-cli-skill:
             The compiled-in `charly dsh` management CLI for a deployed
             deepseek-harness (dsh) box. MUST be invoked before managing the dsh
             version, profiles, or plugins of a running dsh deployment.
+        triggers:
+            - "`charly dsh` (status / profile list / plugin list) against a running deepseek-harness deployment, the compiled-in command:dsh plugin, or the `dsh:` check verb"
         content: |-
             # dsh-cli
 
