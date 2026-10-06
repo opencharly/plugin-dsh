@@ -60,12 +60,14 @@ func verbVersion(ctx context.Context, cc kit.CheckContext) (string, error) {
 // direct check of the loopback-bound web app (the socat forwarder is what makes
 // it reachable from the host; the in-box probe verifies the app itself).
 //
-// The probe is token-authenticated: since dsh-web-app 0.1.5-rc.x a tokenless
+// The probe asserts BOTH auth layers: since dsh-web-app 0.1.5-rc.x a tokenless
 // GET / returns 401, so the shared dshWebTokenProbe fragment (webprobe.go) reads
-// the launch token from $DSH_HOME/web-token and authenticates with ?token=<token>
-// — a missing token file is a hard error, never a silent tokenless probe. Skips
-// under box mode (no running service on a disposable container) — the RunVerb /
-// invokeVerb dispatch gates that.
+// the launch token from $DSH_HOME/web-token and exchanges it on / with
+// ?token=<token>; it then exercises an /api/* call with the cookie and fails on
+// the 403 the Host/Origin browser-trust fence returns (the layer a GET /-only
+// probe cannot see behind a reverse proxy). A missing token file is a hard error,
+// never a silent tokenless probe. Skips under box mode (no running service on a
+// disposable container) — the RunVerb / invokeVerb dispatch gates that.
 func verbWebRunning(ctx context.Context, cc kit.CheckContext) (string, error) {
 	stdout, stderr, exit, err := cc.Exec().RunCapture(ctx, dshWebTokenProbe("3080"))
 	if err != nil {

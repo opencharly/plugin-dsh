@@ -55,10 +55,12 @@ type DshStatusCmd struct {
 func (c *DshStatusCmd) Run() error {
 	// dsh --version, then probe the loopback-bound web UI in-box (the direct
 	// check; the socat forwarder is what makes it reachable from the host). The
-	// probe is the shared token-authenticated dshWebTokenProbe fragment
-	// (webprobe.go): since dsh-web-app 0.1.5-rc.x a tokenless GET / returns 401,
-	// so it reads the launch token from $DSH_HOME/web-token and authenticates
-	// with ?token=<token>; a missing token file is a hard error, never a silent
+	// probe is the shared TWO-LAYER dshWebTokenProbe fragment (webprobe.go): it
+	// reads the launch token from $DSH_HOME/web-token and exchanges it on / with
+	// ?token=<token>, then exercises an /api/* call with the resulting cookie and
+	// fails on the 403 the Host/Origin browser-trust fence returns. A probe that
+	// stops at GET / passes while a reverse-proxy-exposed UI is broken, so both
+	// layers are asserted. A missing token file is a hard error, never a silent
 	// tokenless probe.
 	command := "dsh --version && { " + dshWebTokenProbe("3080") + "; } && echo 'web UI: HTTP 200 on 127.0.0.1:3080'"
 	return runInBox(c.Box, c.Instance, command)

@@ -5,16 +5,22 @@ import (
 	"testing"
 )
 
-// TestDshWebTokenProbeAuthenticates locks in the token-authenticated probe shape
-// both call sites (verbWebRunning, DshStatusCmd.Run) share: it MUST read the
-// launch token file, authenticate the URL with ?token=$T, and fail loudly on a
-// missing token. A regression to the tokenless probe (which returns 401 on
-// dsh-web-app >= 0.1.5-rc.x) fails this test.
+// TestDshWebTokenProbeAuthenticates locks in the two-layer probe shape both call
+// sites (verbWebRunning, DshStatusCmd.Run) share. Layer 1: it MUST read the launch
+// token file, exchange it on / with ?token=$T, and PROPAGATE that exchange's failure
+// (a bad/expired token or a down UI must exit non-zero — the old fragment got this
+// only because the exchange was its last command). Layer 2: it MUST then exercise an
+// /api/* call and reject 403 (the Host/Origin fence), 000 (no response), and 5xx.
 func TestDshWebTokenProbeAuthenticates(t *testing.T) {
 	got := dshWebTokenProbe("3080")
 	for _, want := range []string{
 		`"${DSH_HOME:-$HOME/.dsh}/web-token"`,
 		`http://127.0.0.1:3080/?token=$T`,
+		`|| { echo "dsh web token exchange failed`, // layer-1 failure propagates
+		`http://127.0.0.1:3080/api/models`,
+		`403)`,
+		`000)`,
+		`5??)`,
 		"no dsh web token",
 	} {
 		if !strings.Contains(got, want) {
